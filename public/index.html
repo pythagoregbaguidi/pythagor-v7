@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pythagor Pro v7</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f1f5f9; min-height: 100vh; }
+    .rounded-xl-pro { border-radius: 24px; }
+    input, select { border-radius: 16px !important; border: 1px solid #e2e8f0 !important; padding: 12px !important; }
+    
+    /* STYLE REÇU A4 (Identique à ta v6) */
+    #section-recu { display: none; }
+    @media print {
+      body * { display: none !important; }
+      #section-recu, #section-recu * { display: block !important; }
+      #section-recu { width: 210mm; margin: 0 auto; padding: 40px; background: white; color: black; }
+      .line { display: flex !important; justify-content: space-between; border-bottom: 1px solid #eee; padding: 12px 0; }
+    }
+  </style>
+</head>
+<body class="flex flex-col items-center">
+
+  <div id="section-recu">
+    <h1 style="font-size: 28px; font-weight: 800;">PYTHAGOR PRO</h1>
+    <p>Facture N°: <span id="r-ref"></span></p>
+    <p>Client: <span id="r-nom"></span></p>
+    <hr>
+    <div id="r-items"></div>
+    <h2 id="r-total" style="font-size: 32px; font-weight: 900; text-align: right;"></h2>
+  </div>
+
+  <div id="authPage" class="flex-1 flex items-center justify-center w-full p-4">
+    <div class="bg-white p-10 rounded-xl-pro shadow-2xl w-full max-w-md border-t-8 border-blue-600">
+      <h2 class="text-4xl font-black text-center mb-10 italic">PYTHAGOR <span class="text-blue-600">PRO</span></h2>
+      <form id="loginForm" class="space-y-6">
+        <input type="text" id="user" placeholder="Admin" class="w-full text-lg" required>
+        <input type="password" id="pass" placeholder="Mot de passe" class="w-full text-lg" required>
+        <button class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-xl">SE CONNECTER</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="app" class="hidden w-full max-w-6xl p-4 lg:p-8">
+    <header class="flex justify-between items-center bg-white p-6 rounded-xl-pro shadow-sm mb-10">
+      <h1 class="font-black text-2xl italic">PYTHAGOR <span class="text-blue-600">PRO v7</span></h1>
+      <button onclick="logout()" class="bg-red-50 text-red-500 px-6 py-2 rounded-full font-bold">DÉCONNEXION</button>
+    </header>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10 w-full">
+  <div class="bg-blue-600 p-6 rounded-xl-pro text-white shadow-lg">
+    <p class="text-blue-100 text-sm font-bold uppercase">Chiffre d'Affaires</p>
+    <h2 id="statTotal" class="text-3xl font-black mt-2">0 CFA</h2>
+  </div>
+  <div class="bg-white p-6 rounded-xl-pro shadow-sm border border-slate-100">
+    <p class="text-slate-400 text-sm font-bold uppercase">Clients Inscrits</p>
+    <h2 id="statClients" class="text-3xl font-black mt-2 text-slate-800">0</h2>
+  </div>
+  <div class="bg-emerald-500 p-6 rounded-xl-pro text-white shadow-lg">
+    <p class="text-emerald-100 text-sm font-bold uppercase">Record Vente</p>
+    <h2 id="statMax" class="text-3xl font-black mt-2">0 CFA</h2>
+  </div>
+</div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div class="lg:col-span-4 space-y-6">
+
+        <div class="bg-white p-6 rounded-xl-pro shadow-sm border border-emerald-100">
+          <h3 class="font-bold text-emerald-600 mb-6">👥 CLIENTS</h3>
+          <form id="formClient" class="space-y-3">
+            <input type="text" id="cNom" placeholder="Nom" class="w-full" required>
+            <input type="text" id="cTel" placeholder="Téléphone" class="w-full" required>
+            <button class="w-full bg-emerald-500 text-white py-3 rounded-2xl font-bold">AJOUTER</button>
+          </form>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl-pro shadow-sm border border-blue-100">
+          <h3 class="font-bold text-blue-600 mb-6">🛒 VENTE</h3>
+          <form id="formVente" class="space-y-3">
+            <select id="vClient" class="w-full" required></select>
+            <input type="text" id="vProd" placeholder="Ex: 2*Ciment" class="w-full" required>
+            <input type="number" id="vPrix" placeholder="Prix unitaire" class="w-full" required>
+            <button class="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold">VALIDER</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="lg:col-span-8">
+        <div class="bg-white rounded-xl-pro shadow-sm overflow-hidden">
+          <table class="w-full text-left">
+            <thead class="bg-slate-50 text-[10px] uppercase">
+              <tr><th class="p-6">Client / Détails</th><th class="p-6">Total</th><th class="p-6">Action</th></tr>
+            </thead>
+            <tbody id="venteTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+<script>
+    const API = ""; 
+    let allVentes = []; // Stockage local pour le filtrage rapide
+
+    // --- AUTHENTIFICATION ---
+    document.getElementById('loginForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const res = await fetch(`${API}/login`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ username: user.value, password: pass.value })
+      });
+      const data = await res.json();
+      if(data.success) {
+        sessionStorage.setItem('PY_AUTH', 'true');
+        showApp();
+      } else { alert("Identifiants incorrects"); }
+    }
+
+    function showApp() {
+        document.getElementById('authPage').classList.add('hidden');
+        document.getElementById('app').classList.remove('hidden');
+        loadData();
+    }
+
+    if(sessionStorage.getItem('PY_AUTH')) showApp();
+    function logout() { sessionStorage.clear(); location.reload(); }
+
+    // --- LOGIQUE CLIENTS ---
+    document.getElementById('formClient').onsubmit = async (e) => {
+      e.preventDefault();
+      await fetch(`${API}/clients`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ nom: cNom.value, telephone: cTel.value })
+      });
+      e.target.reset();
+      loadData();
+    };
+
+    async function supprimerClient(id) {
+        if(confirm("Supprimer ce client ?")) {
+            await fetch(`${API}/clients/${id}`, { method: 'DELETE' });
+            loadData();
+        }
+    }
+
+    // --- LOGIQUE VENTES ---
+    document.getElementById('formVente').onsubmit = async (e) => {
+      e.preventDefault();
+      const qte = vProd.value.includes('*') ? vProd.value.split('*')[0] : 1;
+      const total = qte * vPrix.value;
+      
+      await fetch(`${API}/ventes`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ 
+            client_id: vClient.value, 
+            details: vProd.value, 
+            prix_unitaire: vPrix.value,
+            total: total
+        })
+      });
+      e.target.reset();
+      loadData();
+    };
+
+    // --- CHARGEMENT ET RENDU (Avec Filtrage) ---
+    async function loadData() {
+      // 1. Charger clients
+      const resC = await fetch(`${API}/clients`);
+      const clients = await resC.json();
+      vClient.innerHTML = clients.map(c => `<option value="${c.id}">${c.nom}</option>`).join('');
+
+      // 2. Charger ventes
+      const resV = await fetch(`${API}/ventes`);
+      allVentes = await resV.json();
+      renderVentes(allVentes);
+    }
+
+    function renderVentes(data) {
+      venteTable.innerHTML = data.map(v => `
+        <tr class="border-b hover:bg-slate-50 transition">
+          <td class="p-6">
+            <b class="text-slate-900">${v.client_nom || 'Client #'+v.client_id}</b><br>
+            <span class="text-xs text-blue-500 font-bold uppercase">${v.details}</span>
+          </td>
+          <td class="p-6 font-black text-blue-600">${parseFloat(v.total).toLocaleString()} CFA</td>
+          <td class="p-6 text-center">
+            <button onclick="imprimerVente(${v.id})" class="text-2xl hover:scale-125 transition inline-block">🧾</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // --- FILTRAGE DES VENTES ---
+    // Ajoute cet ID à ton input de recherche de ventes si ce n'est pas déjà fait
+    // <input id="searchVente" oninput="filtrerVentes()">
+    function filtrerVentes() {
+        const query = document.getElementById('searchVente').value.toLowerCase();
+        const filtered = allVentes.filter(v => 
+            (v.client_nom && v.client_nom.toLowerCase().includes(query)) || 
+            v.details.toLowerCase().includes(query)
+        );
+        renderVentes(filtered);
+    }
+
+    // --- IMPRESSION DU REÇU ---
+    function imprimerVente(id) {
+        const v = allVentes.find(x => x.id === id);
+        document.getElementById('r-ref').innerText = "FAC-" + v.id;
+        document.getElementById('r-date').innerText = new Date(v.date_vente).toLocaleDateString();
+        document.getElementById('r-nom').innerText = v.client_nom || "Client Passager";
+        document.getElementById('r-tel').innerText = v.client_tel || "-";
+        
+        let container = document.getElementById('r-items');
+        container.innerHTML = "";
+        
+        // Gestion du format 10*Ciment comme dans ta v6
+        let details = v.details;
+        let qte = 1, nomProd = details;
+        if(details.includes('*')){
+            qte = details.split('*')[0];
+            nomProd = details.split('*')[1];
+        }
+
+        container.innerHTML = `
+            <div class="line">
+                <span style="flex:2;">${qte} x ${nomProd} <small>(P.U : ${v.prix_unitaire})</small></span>
+                <span style="flex:1; text-align:right; font-weight:bold;">${parseFloat(v.total).toLocaleString()} CFA</span>
+            </div>`;
+            
+        document.getElementById('r-total').innerText = parseFloat(v.total).toLocaleString() + " CFA";
+        window.print();
+    }
+    
+   async function supprimerVente(id) {
+    if(confirm("Supprimer cette facture définitivement ?")) {
+        await fetch(`${API}/ventes/${id}`, { method: 'DELETE' });
+        loadData(); // Recharge la liste immédiatement
+    }
+}
+
+async function updateStats() {
+    const res = await fetch('/stats');
+    const data = await res.json();
+    
+    document.getElementById('statTotal').innerText = parseFloat(data.chiffreAffaire).toLocaleString() + " CFA";
+    document.getElementById('statClients').innerText = data.clients;
+    document.getElementById('statMax').innerText = parseFloat(data.record).toLocaleString() + " CFA";
+}
+
+// Appelle cette fonction à l'intérieur de loadData() pour qu'elle s'actualise tout le temps
+
+  </script>
+
+<div id="section-recu" style="display:none;">
+
+<div style="text-align:center; border-bottom:2px solid #000; padding-bottom:10px;">
+    <h1 style="margin:0; font-family: sans-serif;">PYTHAGOR PRO</h1>
+    <p style="margin:5px 0;">Vente de Matériels et Services</p>
+    <p style="font-weight: bold;">Contact : +229 01 67 11 06 06</p>
+</div>
+<div style="margin-top:20px;">
+    </div>        
+<div style="margin-top:20px;">
+        <p><strong>Référence :</strong> <span id="r-ref"></span></p>
+        <p><strong>Date :</strong> <span id="r-date"></span></p>
+        <p><strong>Client :</strong> <span id="r-nom"></span></p>
+    </div>
+    <table style="width:100%; margin-top:20px; border-collapse:collapse;">
+        <thead>
+            <tr style="background:#eee;">
+                <th style="text-align:left; padding:5px;">Description</th>
+                <th style="text-align:right; padding:5px;">Total</th>
+            </tr>
+        </thead>
+        <tbody id="r-items"></tbody>
+    </table>
+    <div style="text-align:right; margin-top:20px; font-size:1.2em;">
+        <strong>TOTAL : <span id="r-total"></span></strong>
+    </div>
+</div>
+
+<style>
+    @media print {
+        body * { display: none !important; } /* Cache tout l'écran */
+        #section-recu { display: block !important; } /* Affiche seulement le reçu */
+        #section-recu * { display: block !important; }
+    }
+</style>
+
+</body>
+</html>
